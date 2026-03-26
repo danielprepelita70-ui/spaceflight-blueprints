@@ -1,0 +1,85 @@
+const express = require('express');
+const cors = require('cors');
+const dotenv = require('dotenv');
+const path = require('path');
+const fs = require('fs').promises;
+const crypto = require('crypto');
+
+dotenv.config();
+
+const app = express();
+app.use(cors());
+app.use(express.json());
+app.use(express.static('public'));
+
+// In-memory storage (use a database in production)
+let blueprints = [];
+let adminCode = process.env.ADMIN_CODE || 'ADMIN-' + crypto.randomBytes(8).toString('hex').toUpperCase();
+let registeredAdmins = new Set();
+
+// Generate a one-time admin code
+console.log(`\n🚀 ADMIN CODE (Use once): ${adminCode}\n`);
+
+// Routes
+app.get('/api/blueprints', (req, res) => {
+  res.json(blueprints);
+});
+
+app.post('/api/blueprints', (req, res) => {
+  const { title, description, downloadLink, adminToken } = req.body;
+
+  // Verify admin authentication
+  if (!registeredAdmins.has(adminToken)) {
+    return res.status(403).json({ error: 'Unauthorized. You must be an admin.' });
+  }
+
+  if (!title || !downloadLink) {
+    return res.status(400).json({ error: 'Title and download link required.' });
+  }
+
+  const blueprint = {
+    id: Date.now(),
+    title,
+    description: description || '',
+    downloadLink,
+    createdAt: new Date().toISOString(),
+  };
+
+  blueprints.push(blueprint);
+  res.status(201).json(blueprint);
+});
+
+app.post('/api/register-admin', (req, res) => {
+  const { code } = req.body;
+
+  if (code !== adminCode) {
+    return res.status(403).json({ error: 'Invalid admin code.' });
+  }
+
+  if (registeredAdmins.size > 0) {
+    return res.status(403).json({ error: 'Admin code already used!' });
+  }
+
+  const adminToken = 'ADMIN-' + crypto.randomBytes(16).toString('hex');
+  registeredAdmins.add(adminToken);
+  adminCode = null; // Invalidate the code
+
+  res.json({ adminToken, message: 'Welcome, Admin!' });
+});
+
+app.delete('/api/blueprints/:id', (req, res) => {
+  const { id } = req.params;
+  const { adminToken } = req.body;
+
+  if (!registeredAdmins.has(adminToken)) {
+    return res.status(403).json({ error: 'Unauthorized.' });
+  }
+
+  blueprints = blueprints.filter(b => b.id != id);
+  res.json({ message: 'Blueprint deleted.' });
+});
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`🌐 Server running on http://localhost:${PORT}`);
+});
