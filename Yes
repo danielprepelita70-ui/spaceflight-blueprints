@@ -1,85 +1,57 @@
-const express = require('express');
-const cors = require('cors');
-const dotenv = require('dotenv');
-const path = require('path');
-const fs = require('fs').promises;
-const crypto = require('crypto');
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Spaceflight Simulator Blueprints</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <nav class="navbar">
+    <div class="navbar-container">
+      <h1 class="logo">🚀 Spaceflight Blueprints</h1>
+      <div class="navbar-buttons">
+        <button id="adminBtn" class="btn-admin">Admin Login</button>
+      </div>
+    </div>
+  </nav>
 
-dotenv.config();
+  <div id="adminModal" class="modal hidden">
+    <div class="modal-content">
+      <span class="close">&times;</span>
+      <h2>Admin Registration</h2>
+      <p>Enter the one-time admin code to register as admin:</p>
+      <input type="password" id="adminCodeInput" placeholder="Enter admin code">
+      <button id="submitAdminCode" class="btn-primary">Register as Admin</button>
+      <div id="adminMessage" class="admin-message"></div>
+    </div>
+  </div>
 
-const app = express();
-app.use(cors());
-app.use(express.json());
-app.use(express.static('public'));
+  <div id="publishModal" class="modal hidden">
+    <div class="modal-content">
+      <span class="close">&times;</span>
+      <h2>Publish Blueprint</h2>
+      <input type="text" id="blueprintTitle" placeholder="Blueprint Title" required>
+      <textarea id="blueprintDesc" placeholder="Description (optional)"></textarea>
+      <input type="url" id="blueprintLink" placeholder="Download Link" required>
+      <button id="submitBlueprint" class="btn-primary">Publish Blueprint</button>
+      <div id="publishMessage" class="admin-message"></div>
+    </div>
+  </div>
 
-// In-memory storage (use a database in production)
-let blueprints = [];
-let adminCode = process.env.ADMIN_CODE || 'ADMIN-' + crypto.randomBytes(8).toString('hex').toUpperCase();
-let registeredAdmins = new Set();
+  <main class="container">
+    <section id="adminSection" class="admin-section hidden">
+      <h2>Admin Panel</h2>
+      <button id="publishBtn" class="btn-primary">Publish New Blueprint</button>
+      <div id="myBlueprints" class="blueprints-grid"></div>
+    </section>
 
-// Generate a one-time admin code
-console.log(`\n🚀 ADMIN CODE (Use once): ${adminCode}\n`);
+    <section id="blueprintsSection" class="blueprints-section">
+      <h2>Available Blueprints</h2>
+      <div id="blueprintsList" class="blueprints-grid"></div>
+    </section>
+  </main>
 
-// Routes
-app.get('/api/blueprints', (req, res) => {
-  res.json(blueprints);
-});
-
-app.post('/api/blueprints', (req, res) => {
-  const { title, description, downloadLink, adminToken } = req.body;
-
-  // Verify admin authentication
-  if (!registeredAdmins.has(adminToken)) {
-    return res.status(403).json({ error: 'Unauthorized. You must be an admin.' });
-  }
-
-  if (!title || !downloadLink) {
-    return res.status(400).json({ error: 'Title and download link required.' });
-  }
-
-  const blueprint = {
-    id: Date.now(),
-    title,
-    description: description || '',
-    downloadLink,
-    createdAt: new Date().toISOString(),
-  };
-
-  blueprints.push(blueprint);
-  res.status(201).json(blueprint);
-});
-
-app.post('/api/register-admin', (req, res) => {
-  const { code } = req.body;
-
-  if (code !== adminCode) {
-    return res.status(403).json({ error: 'Invalid admin code.' });
-  }
-
-  if (registeredAdmins.size > 0) {
-    return res.status(403).json({ error: 'Admin code already used!' });
-  }
-
-  const adminToken = 'ADMIN-' + crypto.randomBytes(16).toString('hex');
-  registeredAdmins.add(adminToken);
-  adminCode = null; // Invalidate the code
-
-  res.json({ adminToken, message: 'Welcome, Admin!' });
-});
-
-app.delete('/api/blueprints/:id', (req, res) => {
-  const { id } = req.params;
-  const { adminToken } = req.body;
-
-  if (!registeredAdmins.has(adminToken)) {
-    return res.status(403).json({ error: 'Unauthorized.' });
-  }
-
-  blueprints = blueprints.filter(b => b.id != id);
-  res.json({ message: 'Blueprint deleted.' });
-});
-
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`🌐 Server running on http://localhost:${PORT}`);
-});
+  <script src="app.js"></script>
+</body>
+</html>
